@@ -17,7 +17,7 @@ export function apply(ctx) {
     const handle = createRouter({
       prompt: ({ sessionId, text }) =>
         sessionController.prompt(
-          { sessionId, content: [{ type: 'text', text }], requestId: randomUUID() },
+          { sessionId, mode: 'queue', content: [{ type: 'text', text }], requestId: randomUUID() },
           AbortSignal.timeout(30_000),
         ),
     });

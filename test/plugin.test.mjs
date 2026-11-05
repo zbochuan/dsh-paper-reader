@@ -51,6 +51,7 @@ test('registers the /paper-reader prefix and forwards questions to the session',
   const r = await call(registered[0].handler, 'POST', '/paper-reader/api/ask', { sessionId: 'abc', question: 'q', selection: 'text' });
   assert.equal(r.status, 200);
   assert.equal(prompts[0].sessionId, 'abc');
+  assert.equal(prompts[0].mode, 'queue');
   assert.equal(prompts[0].content[0].type, 'text');
   assert.ok(prompts[0].requestId);
 });
