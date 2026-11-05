@@ -47,3 +47,21 @@ test('buildContext bundles everything', () => {
   assert.ok(c.passage.includes('rescale router logits'));
   assert.ok(c.overview.startsWith('Stable Token Routing'));
 });
+
+test('passage stops at section headings', () => {
+  const page =
+    'released under the Apache 2.0 license. Code: https://example.com\n1 Introduction\nIn this paper we present a model. It routes tokens to experts. More text here.\n2 Method\nNext section text.';
+  const p = passageAround(page, 'It routes tokens to experts');
+  assert.match(p, /In this paper we present a model\./);
+  assert.doesNotMatch(p, /Apache|Introduction|Next section/);
+});
+
+test('definition snippet keeps the whole sentence', () => {
+  const page1 =
+    'Alice Bob Carol Dave Abstract We introduce Mixtral, a Sparse Mixture of Experts (SMoE) language model. For every token, at each layer, a router network selects two experts to process the current state and combine their outputs. Even though each token only sees two experts, the selected experts can be different at each timestep.';
+  const page2 = 'The SMoE layer is applied independently per token.';
+  const defs = definitionsFor([page1, page2], 2, 'The SMoE layer is applied');
+  assert.equal(defs[0].page, 1);
+  assert.match(defs[0].snippet, /^We introduce Mixtral|^Abstract We introduce|SMoE/);
+  assert.match(defs[0].snippet, /router network selects two experts/);
+});

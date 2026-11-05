@@ -39,12 +39,31 @@ function sentences(text) {
   return out;
 }
 
-/** The sentences containing the selection plus one on each side, capped at maxChars. */
+/** Offsets of lines that look like section headings. */
+function headingLines(text) {
+  const out = [];
+  let pos = 0;
+  for (const line of text.split('\n')) {
+    const t = line.trim();
+    if (t.length >= 4 && t.length <= 100 && HEADING_RE.test(t)) out.push({ start: pos, end: pos + line.length });
+    pos += line.length + 1;
+  }
+  return out;
+}
+
+/**
+ * The sentences containing the selection plus one on each side, capped at
+ * maxChars and kept inside the selection's section (never across a heading).
+ */
 export function passageAround(pageText, selection, maxChars = 700) {
   const at = locate(pageText, selection);
   if (at < 0) return pageText.slice(0, maxChars).trim();
   const selEnd = at + String(selection).length;
-  const ss = sentences(pageText);
+  const heads = headingLines(pageText);
+  const lo = Math.max(0, ...heads.filter((h) => h.end <= at).map((h) => h.end));
+  const hi = Math.min(pageText.length, ...heads.filter((h) => h.start >= selEnd).map((h) => h.start));
+  const ss = sentences(pageText.slice(lo, hi)).map((x) => ({ start: x.start + lo, end: x.end + lo }));
+  if (!ss.length) return pageText.slice(at, selEnd).replace(/\s+/g, ' ').trim();
   let i = ss.findIndex((x) => x.end > at);
   let j = ss.findIndex((x) => x.end >= selEnd);
   if (i < 0) i = ss.length - 1;
@@ -56,19 +75,28 @@ export function passageAround(pageText, selection, maxChars = 700) {
   return pageText.slice(start, end).replace(/\s+/g, ' ').trim();
 }
 
-/** A short window around index `at`, trimmed to whole words. */
-function snippetAt(text, at, before = 120, after = 200) {
-  let s = Math.max(0, at - before);
-  let e = Math.min(text.length, at + after);
-  if (s > 0) {
-    const sp = text.slice(s, at).search(/\s/);
-    if (sp >= 0) s += sp + 1;
+/**
+ * The whole sentence containing index `at`, plus the next one when short,
+ * so a definition is not cut off mid-sentence. Capped at maxChars.
+ */
+function snippetAt(text, at, maxChars = 420) {
+  const heads = headingLines(text);
+  const lo = Math.max(0, ...heads.filter((h) => h.end <= at).map((h) => h.end));
+  const hi = Math.min(text.length, ...heads.filter((h) => h.start > at).map((h) => h.start));
+  const ss = sentences(text.slice(lo, hi)).map((x) => ({ start: x.start + lo, end: x.end + lo }));
+  const k = ss.findIndex((x) => x.end > at);
+  if (k < 0) return text.slice(at, at + maxChars).replace(/\s+/g, ' ').trim();
+  let start = ss[k].start;
+  let end = ss[k].end;
+  if (k + 1 < ss.length && ss[k + 1].end - start <= maxChars) end = ss[k + 1].end;
+  if (end - start > maxChars) {
+    // A very long "sentence" (e.g. author list running into the abstract): centre on the match.
+    start = Math.max(start, at - Math.floor(maxChars / 3));
+    end = Math.min(end, start + maxChars);
+    const sp = text.slice(start, at).search(/\s/);
+    if (start > 0 && sp >= 0) start += sp + 1;
   }
-  if (e < text.length) {
-    const sp = text.slice(at, e).search(/\s\S*$/);
-    if (sp > 0) e = at + sp;
-  }
-  return text.slice(s, e).replace(/\s+/g, ' ').trim();
+  return text.slice(start, end).replace(/\s+/g, ' ').trim();
 }
 
 /** Nearest heading line before the selection, looking back up to 3 pages. */
