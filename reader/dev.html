@@ -1,0 +1,46 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>论文伴读 · 本地预览</title>
+<link rel="stylesheet" href="/paper-reader/static/viewer.css">
+<style>
+  body { margin: 0; font-family: system-ui, -apple-system, 'PingFang SC', 'Noto Sans SC', sans-serif; background: #f3f4f6; color: #1d2330; }
+  .frame { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.25fr); height: 100vh; }
+  .chat { padding: 20px; overflow: auto; border-right: 1px solid #dfe3ea; background: #fff; }
+  .chat h1 { font-size: 14px; margin: 0 0 12px; color: #5b6475; font-weight: 500; }
+  .chat pre { white-space: pre-wrap; font: 13px/1.6 inherit; background: #f6f7f9; border: 1px solid #dfe3ea; border-radius: 8px; padding: 12px; }
+  .side { overflow: auto; background: #eceef2; }
+</style>
+</head>
+<body>
+<div class="frame">
+  <section class="chat" aria-label="模拟的 dsh 对话"><h1>模拟的 dsh 对话（发送到会话的消息会显示在这里）</h1><div id="log"></div></section>
+  <section class="side" id="side" aria-label="右侧栏 PDF 预览"></section>
+</div>
+<script type="module">
+  import { mountViewer } from '/paper-reader/static/viewer.js';
+  const data = new Uint8Array(await (await fetch('/sample.pdf')).arrayBuffer());
+  mountViewer(document.getElementById('side'), {
+    data,
+    pdfjsUrl: '/paper-reader/vendor/pdf.min.mjs',
+    workerUrl: '/paper-reader/vendor/pdf.worker.min.mjs',
+    storageKey: 'dpr.dev.highlights',
+    askTargetLabel: '左侧对话',
+    async ask(q) {
+      const res = await fetch('/paper-reader/api/ask', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ ...q, sessionId: 'dev', file: 'sample.pdf' }),
+      });
+      const body = await res.json();
+      if (!res.ok) throw new Error(body.error || '发送失败');
+    },
+  });
+  const log = document.getElementById('log');
+  const es = new EventSource('/dev/messages');
+  es.onmessage = (e) => { const pre = document.createElement('pre'); pre.textContent = JSON.parse(e.data).text; log.append(pre); };
+</script>
+</body>
+</html>

@@ -1,0 +1,5 @@
+# Bundle layer applied when a dsh profile lists this plugin.
+# `name` is the npm package name, resolved through the profile's node_modules.
+- insert:
+    - id: dsh-paper-reader
+      name: '@zbochuan/dsh-paper-reader'
